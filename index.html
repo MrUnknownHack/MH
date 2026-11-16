@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MH AI Assistant</title>
+    <style>
+        body { background: #0b0f19; color: #00ffcc; font-family: 'Segoe UI', sans-serif; text-align: center; padding: 20px; margin: 0; }
+        .header { font-size: 26px; font-weight: bold; margin-top: 20px; letter-spacing: 2px; text-shadow: 0 0 10px #00ffcc; }
+        .sub { color: #8892b0; font-size: 13px; margin-bottom: 30px; }
+        .status-box { background: #112240; border: 1px solid #00ffcc; border-radius: 12px; padding: 15px; margin: 15px auto; max-width: 400px; text-align: left; }
+        .btn-mic { background: #00ffcc; color: #0b0f19; border: none; border-radius: 50%; width: 80px; height: 80px; font-size: 32px; cursor: pointer; box-shadow: 0 0 20px #00ffcc; margin: 20px 0; }
+        .btn-mic:active { transform: scale(0.95); }
+        input { width: 75%; padding: 12px; border-radius: 8px; border: 1px solid #00ffcc; background: #112240; color: white; font-size: 15px; }
+        button.send { padding: 12px 18px; border-radius: 8px; border: none; background: #00ffcc; color: #0b0f19; font-weight: bold; cursor: pointer; }
+        .quick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-width: 400px; margin: 20px auto; }
+        .q-btn { background: #1d2d50; color: #00ffcc; border: 1px solid #00ffcc; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="header">MH ASSISTANT</div>
+    <div class="sub">Muzammal Boss Cloud Control System</div>
+
+    <div class="status-box">
+        <div style="font-size:12px; color:#8892b0;">LAST PC RESPONSE:</div>
+        <div id="pcReply" style="margin-top:8px; font-size:16px; color:#fff;">Waiting for order...</div>
+    </div>
+
+    <button class="btn-mic" onclick="startVoice()">🎤</button>
+    <div style="font-size:12px; color:#8892b0; margin-bottom:15px;">Tap Mic & Speak Order</div>
+
+    <div>
+        <input type="text" id="cmdInput" placeholder="Hukum likhein (e.g. status, chrome)...">
+        <button class="send" onclick="sendOrder()">Send</button>
+    </div>
+
+    <div class="quick-grid">
+        <button class="q-btn" onclick="quickCmd('status')">PC Status</button>
+        <button class="q-btn" onclick="quickCmd('internet')">Check Net</button>
+        <button class="q-btn" onclick="quickCmd('chrome')">Open Chrome</button>
+        <button class="q-btn" onclick="quickCmd('youtube')">Open YouTube</button>
+    </div>
+
+    <script>
+        const CLOUD_URL = "https://mh-assistant-cloud-default-rtdb.firebaseio.com/";
+
+        function speak(text) {
+            const msg = new SpeechSynthesisUtterance(text);
+            window.speechSynthesis.speak(msg);
+        }
+
+        function sendToCloud(commandText) {
+            const orderData = {
+                id: Date.now().toString(),
+                text: commandText,
+                time: new Date().toLocaleTimeString()
+            };
+            fetch(CLOUD_URL + "pc_command.json", {
+                method: "PUT",
+                body: JSON.stringify(orderData)
+            });
+            document.getElementById("pcReply").innerText = "Order bhej diya: " + commandText;
+        }
+
+        function sendOrder() {
+            const txt = document.getElementById("cmdInput").value;
+            if (txt) {
+                sendToCloud(txt);
+                document.getElementById("cmdInput").value = "";
+            }
+        }
+
+        function quickCmd(cmd) {
+            sendToCloud(cmd);
+        }
+
+        function startVoice() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) { alert("Voice support is browser mein nahi hai"); return; }
+            const rec = new SpeechRecognition();
+            rec.lang = "en-US";
+            rec.start();
+            rec.onresult = function(event) {
+                const voiceText = event.results[0][0].transcript;
+                sendToCloud(voiceText);
+            };
+        }
+
+        let lastReplyTime = "";
+        setInterval(() => {
+            fetch(CLOUD_URL + "pc_response.json")
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.timestamp !== lastReplyTime) {
+                        lastReplyTime = data.timestamp;
+                        document.getElementById("pcReply").innerText = data.reply;
+                        speak(data.reply);
+                    }
+                });
+        }, 2000);
+    </script>
+</body>
+</html>
